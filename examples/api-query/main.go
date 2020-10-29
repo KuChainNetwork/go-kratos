@@ -2,25 +2,19 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
-	"net/http"
+
+	sdk "github.com/KuChainNetwork/go-kratos"
 )
 
 const (
-	urlLCD = "http://127.0.0.1:1317/"
+	urlLCD = "http://127.0.0.1:1231/"
 )
 
 func main() {
-	resp, err := http.Get(urlLCD)
+	cli := sdk.NewClient(urlLCD)
+	data, err := cli.Query("blocks/%d/decode", 20)
 	if err != nil {
-		fmt.Println(err)
-		return
+		fmt.Errorf("data err by %s", err.Error())
 	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(body))
-	fmt.Println(resp.StatusCode)
-	if resp.StatusCode == 200 {
-		fmt.Println("ok")
-	}
+	fmt.Println(string(data))
 }

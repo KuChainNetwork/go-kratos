@@ -1,17 +1,48 @@
 package sdk
 
 import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/KuChainNetwork/kuchain/app"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/pkg/errors"
 )
 
 type Client struct {
-	cdc     *codec.Codec
-	NodeURL string
+	cdc    *codec.Codec
+	LcdURL string
 }
 
-func NewClient() *Client {
+func NewClient(lcdURL string) *Client {
+	if lcdURL[len(lcdURL)-1] != '/' {
+		lcdURL += "/"
+	}
+
 	return &Client{
-		cdc: app.MakeCodec(),
+		LcdURL: lcdURL,
+		cdc:    app.MakeCodec(),
+	}
+}
+
+func (c *Client) Query(format string, a ...interface{}) ([]byte, error) {
+	path := c.LcdURL + fmt.Sprintf(format, a...)
+
+	resp, err := http.Get(path)
+	if err != nil {
+		return []byte{}, errors.Wrapf(err, "error by get with %s", path)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return []byte{}, errors.Wrapf(err, "error by read all with %s", path)
+	}
+
+	if resp.StatusCode == 200 {
+		return body, nil
+	} else {
+		return []byte{}, fmt.Errorf("resp code by %d with %s", resp.StatusCode, path)
 	}
 }
