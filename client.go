@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -45,4 +46,17 @@ func (c *Client) Query(format string, a ...interface{}) ([]byte, error) {
 	} else {
 		return []byte{}, fmt.Errorf("resp code by %d with %s", resp.StatusCode, path)
 	}
+}
+
+func (c *Client) queryFromJSON(res interface{}, format string, args ...interface{}) error {
+	data, err := c.Query(format, args...)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(data, res); err != nil {
+		return errors.Wrapf(err, "unmarshal json err by query %s", fmt.Sprintf(format, args...))
+	}
+
+	return nil
 }

@@ -12,9 +12,9 @@ const (
 
 func main() {
 	cli := sdk.NewClient(urlLCD)
-	data, err := cli.Query("blocks/%d/decode", 20)
+	data, err := cli.QueryBlockByNum(20)
 	if err != nil {
 		fmt.Errorf("data err by %s", err.Error())
 	}
-	fmt.Println(string(data))
+	fmt.Println(data.BlockID.String())
 }
