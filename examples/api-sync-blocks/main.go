@@ -42,5 +42,11 @@ func main() {
 		return
 	}
 
-	wsClient.Wait()
+	sdk.HoldToClose(func() {
+		wsClient.Stop()
+		wsClient.Wait()
+
+		logger.Info("stop api sync")
+		logger.Flush()
+	})
 }

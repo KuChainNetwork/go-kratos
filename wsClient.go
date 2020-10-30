@@ -16,6 +16,7 @@ type WsHandler func(typ string, val json.RawMessage) error
 type WSClient struct {
 	wsCli *client.WSClient
 	mutex sync.RWMutex
+	wg    sync.WaitGroup
 
 	handlers      map[string]WsHandler
 	handlerForAll []WsHandler
@@ -46,7 +47,9 @@ func (w *WSClient) Start() error {
 		return err
 	}
 
+	w.wg.Add(1)
 	go func() {
+		defer w.wg.Done()
 		for {
 			resp, ok := <-w.wsCli.ResponsesCh
 			if !ok {
@@ -96,6 +99,7 @@ func (w *WSClient) Stop() error {
 
 func (w *WSClient) Wait() {
 	w.wsCli.Wait()
+	w.wg.Wait()
 }
 
 func (w *WSClient) AddHandler(handler WsHandler) {
