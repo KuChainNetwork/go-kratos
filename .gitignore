@@ -16,3 +16,4 @@ vendor/
 api-query
 ws-listen
 ws-client
+api-sync-blocks

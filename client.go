@@ -9,11 +9,13 @@ import (
 	"github.com/KuChainNetwork/kuchain/app"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/pkg/errors"
+	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
 type Client struct {
 	cdc    *codec.Codec
 	LcdURL string
+	logger tmlog.Logger
 }
 
 func NewClient(lcdURL string) *Client {
@@ -24,6 +26,7 @@ func NewClient(lcdURL string) *Client {
 	return &Client{
 		LcdURL: lcdURL,
 		cdc:    app.MakeCodec(),
+		logger: tmlog.NewNopLogger(),
 	}
 }
 
