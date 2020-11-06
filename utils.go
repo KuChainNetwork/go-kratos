@@ -23,3 +23,11 @@ func HoldToClose(waitFunc func()) {
 	waitFunc()
 	os.Exit(0)
 }
+
+func UnmarshalJSON(bz []byte, ptr interface{}) error {
+	return Codec.UnmarshalJSON(bz, ptr)
+}
+
+func MustMarshalJSON(o interface{}) []byte {
+	return Codec.MustMarshalJSON(o)
+}

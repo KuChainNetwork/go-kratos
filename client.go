@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,6 +10,14 @@ import (
 	"github.com/pkg/errors"
 	tmlog "github.com/tendermint/tendermint/libs/log"
 )
+
+var (
+	Codec *codec.Codec
+)
+
+func init() {
+	Codec = app.MakeCodec()
+}
 
 type Client struct {
 	cdc    *codec.Codec
@@ -28,6 +35,10 @@ func NewClient(lcdURL string) *Client {
 		cdc:    app.MakeCodec(),
 		logger: tmlog.NewNopLogger(),
 	}
+}
+
+func (c Client) Cdc() *codec.Codec {
+	return c.cdc
 }
 
 func (c *Client) Query(format string, a ...interface{}) ([]byte, error) {
@@ -57,7 +68,7 @@ func (c *Client) queryFromJSON(res interface{}, format string, args ...interface
 		return err
 	}
 
-	if err := json.Unmarshal(data, res); err != nil {
+	if err := c.cdc.UnmarshalJSON(data, res); err != nil {
 		return errors.Wrapf(err, "unmarshal json err by query %s", fmt.Sprintf(format, args...))
 	}
 

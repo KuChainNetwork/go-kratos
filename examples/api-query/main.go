@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 
@@ -9,7 +8,7 @@ import (
 )
 
 const (
-	urlLCD = "http://127.0.0.1:1231/"
+	urlLCD = "http://10.1.1.30:1317/"
 )
 
 var (
@@ -22,9 +21,8 @@ func main() {
 	cli := sdk.NewClient(urlLCD)
 	data, err := cli.QueryBlockByNum(*num)
 	if err != nil {
-		fmt.Errorf("data err by %s", err.Error())
+		panic(fmt.Errorf("data err by %s", err.Error()))
 	}
 
-	datas, _ := json.Marshal(*data.DecodeBlock)
-	fmt.Println(string(datas))
+	fmt.Println(string(sdk.MustMarshalJSON(data.DecodeBlock)))
 }
