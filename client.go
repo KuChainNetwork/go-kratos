@@ -37,6 +37,10 @@ func NewClient(lcdURL string) *Client {
 	}
 }
 
+func (c *Client) SetLogger(l tmlog.Logger) {
+	c.logger = l
+}
+
 func (c Client) Cdc() *codec.Codec {
 	return c.cdc
 }
@@ -63,10 +67,16 @@ func (c *Client) Query(format string, a ...interface{}) ([]byte, error) {
 }
 
 func (c *Client) queryFromJSON(res interface{}, format string, args ...interface{}) error {
+	c.logger.Debug("query", "path", fmt.Sprintf(format, args...))
+
 	data, err := c.Query(format, args...)
 	if err != nil {
 		return err
 	}
+
+	//c.logger.Debug("get %s", string(data))
+
+	//fmt.Println(string(data))
 
 	if err := c.cdc.UnmarshalJSON(data, res); err != nil {
 		return errors.Wrapf(err, "unmarshal json err by query %s", fmt.Sprintf(format, args...))

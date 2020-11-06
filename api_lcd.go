@@ -1,6 +1,8 @@
 package sdk
 
 import (
+	"fmt"
+
 	"github.com/KuChainNetwork/go-kratos/types"
 	"github.com/KuChainNetwork/kuchain/chain/client/rest/block"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -17,20 +19,37 @@ func (c *Client) QueryBlockByNum(num int64) (block.DecodeResultBlock, error) {
 	return res, nil
 }
 
-func (c *Client) QueryTxByHash(hash string) (sdk.TxResponse, error) {
-	var tx sdk.TxResponse
+func (c *Client) QueryLatestBlock() (block.DecodeResultBlock, error) {
+	var res block.DecodeResultBlock
 
-	if err := c.queryFromJSON(&tx, "txs/%s", hash); err != nil {
-		return tx, errors.Wrapf(err, "error by query tx %s", hash)
+	if err := c.queryFromJSON(&res, "blocks/latest/decode"); err != nil {
+		return res, errors.Wrapf(err, "error by query block decode latest")
 	}
 
-	return tx, nil
+	return res, nil
+}
+
+func (c *Client) QueryTxByHash(hash string) (sdk.TxResponse, error) {
+	var tx struct {
+		Res sdk.TxResponse `json:"TxResponse"`
+	}
+
+	if err := c.queryFromJSON(&tx, "txs/%s", hash); err != nil {
+		return tx.Res, errors.Wrapf(err, "error by query tx %s", hash)
+	}
+
+	return tx.Res, nil
 }
 
 func (c *Client) QueryFullBlock(num int64) (types.FullBlock, error) {
 	var decodeRes block.DecodeResultBlock
 
-	if err := c.queryFromJSON(&decodeRes, "blocks/%d/decode", num); err != nil {
+	path := fmt.Sprintf("blocks/%d/decode", num)
+	if num == 0 {
+		path = "blocks/latest/decode"
+	}
+
+	if err := c.queryFromJSON(&decodeRes, path); err != nil {
 		return types.FullBlock{}, errors.Wrapf(err, "error by query block decode %d", num)
 	}
 
@@ -39,7 +58,9 @@ func (c *Client) QueryFullBlock(num int64) (types.FullBlock, error) {
 		BlockID:    decodeRes.BlockID.Hash.String(),
 		Evidence:   decodeRes.DecodeBlock.Evidence,
 		LastCommit: *decodeRes.DecodeBlock.LastCommit,
-		Txs:        make([]types.TxData, 0, len(decodeRes.DecodeBlock.TxsHash)),
+		TxDatas:    make([]types.TxData, 0, len(decodeRes.DecodeBlock.TxsHash)),
+		Txs:        decodeRes.DecodeBlock.Txs,
+		TxsHash:    decodeRes.DecodeBlock.TxsHash,
 	}
 
 	// get each tx
@@ -49,7 +70,7 @@ func (c *Client) QueryFullBlock(num int64) (types.FullBlock, error) {
 			return types.FullBlock{}, errors.Wrapf(err, "error by tx query %s", txHash.String())
 		}
 
-		res.Txs = append(res.Txs, types.TxData(txRes))
+		res.TxDatas = append(res.TxDatas, types.TxData(txRes))
 	}
 
 	return res, nil
