@@ -15,6 +15,7 @@ func main() {
 
 	rootCmd.AddCommand(
 		ScanAllBlocks(),
+		ScanAllTxs(),
 	)
 
 	err := rootCmd.Execute()
