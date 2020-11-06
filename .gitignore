@@ -13,7 +13,8 @@
 
 # Dependency directories (remove the comment below to include it)
 vendor/
-api-query
-ws-listen
-ws-client
-api-sync-blocks
+/api-query
+/ws-listen
+/ws-client
+/api-sync-blocks
+/scan

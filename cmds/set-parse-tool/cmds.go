@@ -48,7 +48,6 @@ func ForEachCheckSet(cdc *amino.Codec) *cobra.Command {
 		Use:   "foreach-set [logpath]",
 		Short: "foreach set data from log",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			file, err := os.Open(args[0])
 			if err != nil {
 				log.Fatal(err)

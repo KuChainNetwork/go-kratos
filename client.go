@@ -26,6 +26,10 @@ type Client struct {
 }
 
 func NewClient(lcdURL string) *Client {
+	if lcdURL == "" {
+		panic(errors.New("url error"))
+	}
+
 	if lcdURL[len(lcdURL)-1] != '/' {
 		lcdURL += "/"
 	}
