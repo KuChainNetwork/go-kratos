@@ -13,8 +13,8 @@ func makeCmd(cmds ...*cobra.Command) *cobra.Command {
 	}
 
 	rootCmd := &cobra.Command{
-		Use:   "scan",
-		Short: "scan datas from chain",
+		Use:   "kratos-tail",
+		Short: "tail datas from chain",
 	}
 
 	rootCmd.AddCommand(cmds...)
@@ -24,8 +24,8 @@ func makeCmd(cmds ...*cobra.Command) *cobra.Command {
 
 func main() {
 	rootCmd := makeCmd(
-		ScanAllBlocks(),
-		ScanAllTxs(),
+		TailBlocks(),
+		TailTxs(),
 	)
 
 	err := rootCmd.Execute()

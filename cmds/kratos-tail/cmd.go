@@ -17,7 +17,7 @@ const (
 	FlagURL = "url"
 )
 
-func ScanAllBlocks() *cobra.Command {
+func TailBlocks() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "blocks [fromHeight]",
 		Short: "scan all blocks and log to json",
@@ -33,12 +33,10 @@ func ScanAllBlocks() *cobra.Command {
 				fromHeight = 1
 			}
 
-			url := cmd.Flag(FlagURL).Value.String()
-
 			scanner := sdk.NewScanner(int64(fromHeight))
 			scanner.SetLogger(log.NewLoggerByZap(true, "*:info"))
 
-			return scanner.ScanBlocks(url, int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
+			return scanner.ScanBlocks(cmd.Flag(FlagURL).Value.String(), int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
 				l.Info("block", "height", block.Height, "id", block.BlockID, "appHash", block.AppHash.String(), "txs", len(block.TxDatas))
 				return nil
 			})
@@ -49,7 +47,7 @@ func ScanAllBlocks() *cobra.Command {
 	return cmd
 }
 
-func ScanAllTxs() *cobra.Command {
+func TailTxs() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "txs [fromHeight]",
 		Short: "scan all txs and log to json",
@@ -65,12 +63,10 @@ func ScanAllTxs() *cobra.Command {
 				fromHeight = 1
 			}
 
-			url := cmd.Flag(FlagURL).Value.String()
-
 			scanner := sdk.NewScanner(int64(fromHeight))
 			scanner.SetLogger(log.NewLoggerByZap(true, "*:info"))
 
-			return scanner.ScanBlocks(url, int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
+			return scanner.ScanBlocks(cmd.Flag(FlagURL).Value.String(), int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
 				l.Debug("block", "height", block.Height, "id", block.BlockID, "appHash", block.AppHash.String(), "txs", len(block.TxDatas))
 				for _, tx := range block.TxDatas {
 					l.Info("txs", "height", block.Height, "tx", tx.TxHash)
