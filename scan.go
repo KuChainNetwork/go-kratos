@@ -8,6 +8,8 @@ import (
 	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
+type BlockHandler func(logger tmlog.Logger, height int64, block *types.FullBlock) error
+
 type scanner struct {
 	wg     sync.WaitGroup
 	logger tmlog.Logger
@@ -27,6 +29,10 @@ func (s *scanner) SetLogger(l tmlog.Logger) {
 	s.logger = l
 }
 
+func (s *scanner) CurrentBlockHeight() int64 {
+	return s.currentBlockHeight
+}
+
 func (s *scanner) setToHeight(height int64) {
 	s.logger.Debug("setToHeight", "height", height)
 	s.latestBlockHeight = height
@@ -39,7 +45,7 @@ func (s *scanner) onBlockGot(block *types.FullBlock) error {
 	return nil
 }
 
-func (s *scanner) ScanBlocks(url string, fromHeight int64, h func(logger tmlog.Logger, height int64, block *types.FullBlock) error) error {
+func (s *scanner) ScanBlocks(url string, fromHeight int64, h BlockHandler) error {
 	// no create a go routine
 
 	cli := NewClient(url)

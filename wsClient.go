@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/KuChainNetwork/go-kratos/types"
 	"github.com/KuChainNetwork/kuchain/app"
 	"github.com/pkg/errors"
 	"github.com/tendermint/tendermint/libs/log"
@@ -130,4 +131,18 @@ func (w *WSClient) Subscribe(ctx context.Context, query string, handler WsHandle
 	w.wsCli.Logger.Info("subscribe", "query", query)
 
 	return nil
+}
+
+func (w *WSClient) SubscribeBlocks(ctx context.Context, handler func(evtBlock *types.EventNewBlock) error) error {
+	const queryParamString = "tm.event='NewBlock'"
+	return w.Subscribe(context.Background(), queryParamString,
+		func(typ string, val json.RawMessage) error {
+			evt := types.EventNewBlock{}
+
+			if err := Codec.UnmarshalJSON(val, &evt); err != nil {
+				return errors.Wrapf(err, "unmarlshal block from ws error")
+			}
+
+			return handler(&evt)
+		})
 }

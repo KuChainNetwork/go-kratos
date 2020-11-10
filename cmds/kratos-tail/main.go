@@ -10,6 +10,7 @@ import (
 func makeCmd(cmds ...*cobra.Command) *cobra.Command {
 	for _, cmd := range cmds {
 		cmd.Flags().StringP(FlagURL, "u", "http://127.0.0.1:1317/", "lcd server http rpc url")
+		cmd.Flags().StringP(FlagRPCURL, "r", "http://127.0.0.1:26657", "node http rpc url")
 	}
 
 	rootCmd := &cobra.Command{
@@ -25,7 +26,6 @@ func makeCmd(cmds ...*cobra.Command) *cobra.Command {
 func main() {
 	rootCmd := makeCmd(
 		TailBlocks(),
-		TailTxs(),
 	)
 
 	err := rootCmd.Execute()
