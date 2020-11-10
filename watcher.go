@@ -43,16 +43,28 @@ func newBlockDataStop() blockData {
 	}
 }
 
+const (
+	watcherStatInit = iota + 0
+	watcherStatSync
+	watcherStatWatch
+	watcherStatEnd
+)
+
 type watcher struct {
 	wg             sync.WaitGroup
 	blockDataChann chan blockData
+	stat           int
+	mutex          sync.RWMutex
 
-	scanner *scanner
-	logger  tmlog.Logger
+	scanner  *scanner
+	cli      *Client
+	wsClient *WSClient
+	logger   tmlog.Logger
 }
 
 func NewWatcher(fromHeight int64) *watcher {
 	return &watcher{
+		stat:           watcherStatInit,
 		scanner:        NewScanner(fromHeight),
 		logger:         tmlog.NewNopLogger(),
 		blockDataChann: make(chan blockData, 4096),
@@ -62,6 +74,20 @@ func NewWatcher(fromHeight int64) *watcher {
 func (w *watcher) SetLogger(l tmlog.Logger) {
 	w.logger = l
 	w.scanner.SetLogger(l)
+}
+
+func (w *watcher) nextStatStep() {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	w.stat++
+}
+
+func (w *watcher) Status() int {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
+	return w.stat
 }
 
 func (w *watcher) handlerLoop(h BlockHandler) {
@@ -100,18 +126,20 @@ func (w *watcher) handlerLoop(h BlockHandler) {
 func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler) error {
 	w.logger.Debug("start scanner first", "from", fromHeight)
 
-	cli := NewClient(lcdURL)
+	// init the  client
+	w.cli = NewClient(lcdURL)
 
-	// init the ws client
-	wsClient, err := NewWSClient(log.NewNopLogger(), rpcURL)
+	wsCli, err := NewWSClient(log.NewNopLogger(), rpcURL)
 	if err != nil {
 		return errors.Wrapf(err, "start ws client to chain node error")
 	}
 
-	if err := wsClient.Start(); err != nil {
+	if err := wsCli.Start(); err != nil {
 		return errors.Wrapf(err, "start ws client error")
 	}
+	w.wsClient = wsCli
 
+	// start handler
 	w.logger.Debug("start handler")
 
 	// call all handler h in one gorountinue
@@ -122,6 +150,9 @@ func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler)
 	}()
 
 	w.blockDataChann <- newBlockDataStart(fromHeight)
+
+	// from init to sync
+	w.nextStatStep()
 
 	// first scanner all old blocks
 	if err := w.scanner.ScanBlocks(lcdURL, fromHeight,
@@ -140,12 +171,15 @@ func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler)
 	currentHasHandled := w.scanner.CurrentBlockHeight()
 	w.logger.Debug("current block to get", "height", currentHasHandled)
 
+	// from sync to watch
+	w.nextStatStep()
+
 	// on watch
 	const queryParamString = "tm.event='NewBlock'"
 
-	if err := wsClient.SubscribeBlocks(context.Background(),
+	if err := w.wsClient.SubscribeBlocks(context.Background(),
 		func(block *types.EventNewBlock) error {
-			full, err := cli.QueryFullBlock(block.Block.Block.Height)
+			full, err := w.cli.QueryFullBlock(block.Block.Block.Height)
 			if err != nil {
 				return errors.Wrapf(err, "query full block error")
 			}
@@ -156,16 +190,17 @@ func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler)
 		return errors.Wrapf(err, "subscribe error")
 	}
 
-	wsClient.Wait()
-
 	return nil
 }
 
 func (w *watcher) Wait() {
+	w.wsClient.Wait()
 	w.wg.Wait()
 }
 
 func (w *watcher) Stop() {
 	// TODO: stop scan and watch at first then wait all processed
+
+	w.blockDataChann <- newBlockDataStop()
 	close(w.blockDataChann)
 }

@@ -39,11 +39,17 @@ func TailBlocks() *cobra.Command {
 			watcher := sdk.NewWatcher(int64(fromHeight))
 			watcher.SetLogger(sdk.NewLoggerByZap(true, "*:debug"))
 
-			return watcher.Watch(lcdURL, rpcURL, int64(fromHeight),
+			if err := watcher.Watch(lcdURL, rpcURL, int64(fromHeight),
 				func(logger tmlog.Logger, height int64, block *types.FullBlock) error {
 					logger.Info("on block", "height", height, "id", block.BlockID, "appHash", block.AppHash.String())
 					return nil
-				})
+				}); err != nil {
+				return errors.Wrapf(err, "watcher error")
+			}
+
+			watcher.Wait()
+
+			return nil
 		},
 		Args: cobra.ExactArgs(1),
 	}
