@@ -272,7 +272,9 @@ func reqAllNodes(address [][2]string) []AddrResState {
 
 func main() {
 	// TODO: use cmd
-	addresses := [][2]string{}
+	addresses := [][2]string{
+		{"name", "http://127.0.0.1:26657/"},
+	}
 
 	for {
 		time.Sleep(2 * time.Second)
