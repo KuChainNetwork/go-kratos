@@ -50,6 +50,40 @@ const (
 	watcherStatEnd
 )
 
+func handlerLoop(name string, logger log.Logger, ch <-chan blockData, h BlockHandler) {
+	logger = logger.With("name", name)
+	logger.Debug("start handler gorountinue")
+
+	var currHeightToHandler int64
+
+	for {
+		data, ok := <-ch
+		if !ok {
+			// closed scanner
+			logger.Info("stop handler gorountinue")
+			return
+		}
+
+		switch data.typ {
+		case blockDataTypStart:
+			logger.Info("start handler by gorountinue", "height", data.height)
+			currHeightToHandler = data.height
+		case blockDataTypStop:
+			logger.Info("stop handler by cmd gorountinue")
+			return
+		case blockDataTypBlock:
+			if currHeightToHandler == data.blk.Height {
+				if err := h(logger, data.blk.Height, data.blk); err != nil {
+					logger.Error("handler err", "err", err.Error())
+				}
+				currHeightToHandler++
+			}
+		default:
+			logger.Error("error data type", "data", data.typ)
+		}
+	}
+}
+
 type watcher struct {
 	wg             sync.WaitGroup
 	blockDataChann chan blockData
@@ -90,39 +124,6 @@ func (w *watcher) Status() int {
 	return w.stat
 }
 
-func (w *watcher) handlerLoop(h BlockHandler) {
-	w.logger.Debug("start handler gorountinue")
-
-	var currHeightToHandler int64
-
-	for {
-		data, ok := <-w.blockDataChann
-		if !ok {
-			// closed scanner
-			w.logger.Info("stop handler gorountinue")
-			return
-		}
-
-		switch data.typ {
-		case blockDataTypStart:
-			w.logger.Info("start handler by gorountinue", "height", data.height)
-			currHeightToHandler = data.height
-		case blockDataTypStop:
-			w.logger.Info("stop handler by cmd gorountinue")
-			return
-		case blockDataTypBlock:
-			if currHeightToHandler == data.blk.Height {
-				if err := h(w.logger, data.blk.Height, data.blk); err != nil {
-					w.logger.Error("handler err", "err", err.Error())
-				}
-				currHeightToHandler++
-			}
-		default:
-			w.logger.Error("error data type", "data", data.typ)
-		}
-	}
-}
-
 func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler) error {
 	w.logger.Debug("start scanner first", "from", fromHeight)
 
@@ -146,7 +147,7 @@ func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler)
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
-		w.handlerLoop(h)
+		handlerLoop("watcher", w.logger, w.blockDataChann, h)
 	}()
 
 	w.blockDataChann <- newBlockDataStart(fromHeight)
@@ -155,7 +156,7 @@ func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler)
 	w.nextStatStep()
 
 	// first scanner all old blocks
-	if err := w.scanner.ScanBlocks(lcdURL, fromHeight,
+	w.scanner.ScanBlocks(lcdURL, fromHeight,
 		func(logger tmlog.Logger, height int64, block *types.FullBlock) error {
 			if height%100 == 0 {
 				logger.Debug("handler blocks", "height", height)
@@ -163,13 +164,11 @@ func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler)
 
 			w.blockDataChann <- newBlockDataBlk(block)
 			return nil
-		}); err != nil {
-		return errors.Wrapf(err, "scanner last blocks error")
-	}
+		})
 
 	// start watch blocks from no scaned
-	currentHasHandled := w.scanner.CurrentBlockHeight()
-	w.logger.Debug("current block to get", "height", currentHasHandled)
+	currentHasHandled := w.scanner.LastestBlockHeight()
+	w.logger.Debug("current block has get", "height", currentHasHandled)
 
 	// from sync to watch
 	w.nextStatStep()
