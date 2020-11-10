@@ -19,3 +19,4 @@ vendor/
 /api-sync-blocks
 /scan
 /kratos-tail
+/kratos-states
