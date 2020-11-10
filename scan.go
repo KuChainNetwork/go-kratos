@@ -11,17 +11,19 @@ import (
 type BlockHandler func(logger tmlog.Logger, height int64, block *types.FullBlock) error
 
 type scanner struct {
-	wg     sync.WaitGroup
-	logger tmlog.Logger
+	wg             sync.WaitGroup
+	logger         tmlog.Logger
+	cli            *Client
+	blockDataChann chan blockData
 
-	currentBlockHeight int64
-	latestBlockHeight  int64
+	mutex             sync.RWMutex
+	latestBlockHeight int64
 }
 
 func NewScanner(fromHeight int64) *scanner {
 	return &scanner{
-		currentBlockHeight: fromHeight,
-		logger:             tmlog.NewNopLogger(),
+		logger:         tmlog.NewNopLogger(),
+		blockDataChann: make(chan blockData, 4096),
 	}
 }
 
@@ -29,59 +31,90 @@ func (s *scanner) SetLogger(l tmlog.Logger) {
 	s.logger = l
 }
 
-func (s *scanner) CurrentBlockHeight() int64 {
-	return s.currentBlockHeight
+func (s *scanner) LastestBlockHeight() int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.latestBlockHeight
 }
 
 func (s *scanner) setToHeight(height int64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	s.logger.Debug("setToHeight", "height", height)
 	s.latestBlockHeight = height
 }
 
-func (s *scanner) onBlockGot(block *types.FullBlock) error {
-	s.logger.Debug("onBlockGot", "height", block.Height)
+func (s *scanner) ScanBlocks(url string, fromHeight int64, h BlockHandler) {
+	s.cli = NewClient(url)
 
-	s.currentBlockHeight = block.Height + 1
-	return nil
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		handlerLoop("scanner", s.logger, s.blockDataChann, h)
+	}()
+
+	s.blockDataChann <- newBlockDataStart(fromHeight)
+
+	s.wg.Add(1)
+	go func() {
+		defer func() {
+			s.wg.Done()
+
+			// stop the scanner handler
+			close(s.blockDataChann)
+		}()
+
+		if err := s.scanBlocksImp(url, fromHeight, h); err != nil {
+			s.logger.Error("scan block error", "err", err)
+		}
+	}()
+
 }
 
-func (s *scanner) ScanBlocks(url string, fromHeight int64, h BlockHandler) error {
-	// no create a go routine
-
-	cli := NewClient(url)
-	s.currentBlockHeight = fromHeight
-	if s.currentBlockHeight < 1 {
-		s.currentBlockHeight = 1
+func (s *scanner) scanBlocksImp(url string, fromHeight int64, h BlockHandler) error {
+	currentBlockHeight := fromHeight
+	if currentBlockHeight < 1 {
+		currentBlockHeight = 1
 	}
 
-	last, err := cli.QueryLatestBlock()
+	last, err := s.cli.QueryLatestBlock()
 	if err != nil {
 		return errors.Wrapf(err, "get latest block err")
 	}
 
-	if last.DecodeBlock.Height <= s.currentBlockHeight {
+	if last.DecodeBlock.Height <= currentBlockHeight {
 		// has scan all
 		return nil
 	}
 
-	s.setToHeight(last.DecodeBlock.Height)
+	currToBlockHeight := last.DecodeBlock.Height
+	s.setToHeight(currToBlockHeight)
 
 	for {
-		curr := s.currentBlockHeight
-		if curr > s.latestBlockHeight {
+		curr := currentBlockHeight
+		if curr > currToBlockHeight {
 			// has to the last
-			return s.ScanBlocks(url, curr, h)
+			return s.scanBlocksImp(url, curr, h)
 		}
 
-		block, err := cli.QueryFullBlock(curr)
+		block, err := s.cli.QueryFullBlock(curr)
 		if err != nil {
 			return errors.Wrapf(err, "query block %d", curr)
 		}
 
-		if err := h(s.logger, curr, &block); err != nil {
-			return errors.Wrapf(err, "handler block err %d", curr)
-		}
+		// to handler loop
+		s.blockDataChann <- newBlockDataBlk(&block)
 
-		s.onBlockGot(&block)
+		currentBlockHeight = block.Height + 1
 	}
+}
+
+func (s *scanner) Wait() {
+	s.wg.Wait()
+}
+
+func (s *scanner) Stop() {
+
 }
