@@ -20,9 +20,10 @@ type scanner struct {
 	latestBlockHeight int64
 }
 
-func NewScanner(fromHeight int64) *scanner {
+func NewScanner(ctx Context, fromHeight int64) *scanner {
 	return &scanner{
-		logger:         tmlog.NewNopLogger(),
+		logger:         ctx.Logger(),
+		cli:            NewClient(ctx),
 		blockDataChann: make(chan blockData, 4096),
 	}
 }
@@ -47,12 +48,10 @@ func (s *scanner) setToHeight(height int64) {
 }
 
 func (s *scanner) ScanBlocks(ctx Context, fromHeight int64, h BlockHandler) {
-	s.cli = NewClient(ctx)
-
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		handlerLoop("scanner", s.logger, s.blockDataChann, h)
+		handlerLoop(ctx, "scanner", s.blockDataChann, h)
 	}()
 
 	s.blockDataChann <- newBlockDataStart(fromHeight)
@@ -66,14 +65,14 @@ func (s *scanner) ScanBlocks(ctx Context, fromHeight int64, h BlockHandler) {
 			close(s.blockDataChann)
 		}()
 
-		if err := s.scanBlocksImp(ctx.LcdURL(), fromHeight, h); err != nil {
+		if err := s.scanBlocksImp(ctx, fromHeight, h); err != nil {
 			s.logger.Error("scan block error", "err", err)
 		}
 	}()
 
 }
 
-func (s *scanner) scanBlocksImp(url string, fromHeight int64, h BlockHandler) error {
+func (s *scanner) scanBlocksImp(ctx Context, fromHeight int64, h BlockHandler) error {
 	currentBlockHeight := fromHeight
 	if currentBlockHeight < 1 {
 		currentBlockHeight = 1
@@ -93,28 +92,30 @@ func (s *scanner) scanBlocksImp(url string, fromHeight int64, h BlockHandler) er
 	s.setToHeight(currToBlockHeight)
 
 	for {
-		curr := currentBlockHeight
-		if curr > currToBlockHeight {
-			// has to the last
-			return s.scanBlocksImp(url, curr, h)
+		select {
+		case <-ctx.Done():
+			ctx.Logger().Info("scanner stoped")
+			return nil
+		default:
+			curr := currentBlockHeight
+			if curr > currToBlockHeight {
+				// has to the last
+				return s.scanBlocksImp(ctx, curr, h)
+			}
+
+			block, err := s.cli.QueryFullBlock(curr)
+			if err != nil {
+				return errors.Wrapf(err, "query block %d", curr)
+			}
+
+			// to handler loop
+			s.blockDataChann <- newBlockDataBlk(&block)
+
+			currentBlockHeight = block.Height + 1
 		}
-
-		block, err := s.cli.QueryFullBlock(curr)
-		if err != nil {
-			return errors.Wrapf(err, "query block %d", curr)
-		}
-
-		// to handler loop
-		s.blockDataChann <- newBlockDataBlk(&block)
-
-		currentBlockHeight = block.Height + 1
 	}
 }
 
 func (s *scanner) Wait() {
 	s.wg.Wait()
-}
-
-func (s *scanner) Stop() {
-
 }

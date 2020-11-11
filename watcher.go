@@ -49,8 +49,8 @@ const (
 	watcherStatEnd
 )
 
-func handlerLoop(name string, logger log.Logger, ch <-chan blockData, h BlockHandler) {
-	logger = logger.With("name", name)
+func handlerLoop(ctx Context, name string, ch <-chan blockData, h BlockHandler) {
+	logger := ctx.Logger().With("name", name)
 	logger.Debug("start handler gorountinue")
 
 	var currHeightToHandler int64
@@ -58,7 +58,7 @@ func handlerLoop(name string, logger log.Logger, ch <-chan blockData, h BlockHan
 	for {
 		data, ok := <-ch
 		if !ok {
-			// closed scanner
+			// closed scanner, closed by last
 			logger.Info("stop handler gorountinue")
 			return
 		}
@@ -95,11 +95,12 @@ type watcher struct {
 	logger   log.Logger
 }
 
-func NewWatcher(fromHeight int64) *watcher {
+func NewWatcher(ctx Context, fromHeight int64) *watcher {
 	return &watcher{
 		stat:           watcherStatInit,
-		scanner:        NewScanner(fromHeight),
-		logger:         log.NewNopLogger(),
+		scanner:        NewScanner(ctx, fromHeight),
+		cli:            NewClient(ctx),
+		logger:         ctx.Logger(),
 		blockDataChann: make(chan blockData, 4096),
 	}
 }
@@ -126,9 +127,7 @@ func (w *watcher) Status() int {
 func (w *watcher) Watch(ctx Context, fromHeight int64, h BlockHandler) error {
 	w.logger.Debug("start scanner first", "from", fromHeight)
 
-	// init the  client
-	w.cli = NewClient(ctx)
-
+	// init the client
 	wsCli, err := NewWSClient(log.NewNopLogger(), ctx.LcdURL())
 	if err != nil {
 		return errors.Wrapf(err, "start ws client to chain node error")
@@ -146,7 +145,7 @@ func (w *watcher) Watch(ctx Context, fromHeight int64, h BlockHandler) error {
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
-		handlerLoop("watcher", w.logger, w.blockDataChann, h)
+		handlerLoop(ctx, "watcher", w.blockDataChann, h)
 	}()
 
 	w.blockDataChann <- newBlockDataStart(fromHeight)

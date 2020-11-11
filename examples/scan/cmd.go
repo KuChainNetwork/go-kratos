@@ -35,20 +35,27 @@ func ScanAllBlocks() *cobra.Command {
 			}
 
 			url := cmd.Flag(FlagURL).Value.String()
+			logger := log.NewLoggerByZap(true, "*:info")
 
-			scanner := sdk.NewScanner(int64(fromHeight))
-			scanner.SetLogger(log.NewLoggerByZap(true, "*:info"))
-
-			ctx := sdk.NewCtx(context.Background()).
-				WithLogger(log.NewLoggerByZap(true, "*:info")).
+			ctxCancel, cancel := context.WithCancel(context.Background())
+			ctx := sdk.NewCtx(ctxCancel).
+				WithLogger(logger).
 				WithUrls(url, "")
 
+			scanner := sdk.NewScanner(ctx, int64(fromHeight))
 			scanner.ScanBlocks(ctx, int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
 				l.Info("block", "height", block.Height, "id", block.BlockID, "appHash", block.AppHash.String(), "txs", len(block.TxDatas))
 				return nil
 			})
 
-			scanner.Wait()
+			sdk.HoldToClose(func() {
+				cancel()
+
+				logger.Info("cancel scanner, waiting for stopped")
+				scanner.Wait()
+
+				logger.Info("scanner stopped")
+			})
 
 			return nil
 		},
@@ -74,15 +81,15 @@ func ScanAllTxs() *cobra.Command {
 				fromHeight = 1
 			}
 
+			logger := log.NewLoggerByZap(true, "*:info")
 			url := cmd.Flag(FlagURL).Value.String()
 
-			scanner := sdk.NewScanner(int64(fromHeight))
-			scanner.SetLogger(log.NewLoggerByZap(true, "*:info"))
-
-			ctx := sdk.NewCtx(context.Background()).
-				WithLogger(log.NewLoggerByZap(true, "*:info")).
+			ctxCancel, cancel := context.WithCancel(context.Background())
+			ctx := sdk.NewCtx(ctxCancel).
+				WithLogger(logger).
 				WithUrls(url, "")
 
+			scanner := sdk.NewScanner(ctx, int64(fromHeight))
 			scanner.ScanBlocks(ctx, int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
 				l.Debug("block", "height", block.Height, "id", block.BlockID, "appHash", block.AppHash.String(), "txs", len(block.TxDatas))
 				for _, tx := range block.TxDatas {
@@ -91,7 +98,14 @@ func ScanAllTxs() *cobra.Command {
 				return nil
 			})
 
-			scanner.Wait()
+			sdk.HoldToClose(func() {
+				cancel()
+
+				logger.Info("cancel scanner, waiting for stopped")
+				scanner.Wait()
+
+				logger.Info("scanner stopped")
+			})
 
 			return nil
 		},

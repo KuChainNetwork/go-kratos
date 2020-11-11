@@ -41,9 +41,7 @@ func TailBlocks() *cobra.Command {
 				WithUrls(lcdURL, rpcURL).
 				WithLogger(sdk.NewLoggerByZap(true, "*:debug"))
 
-			watcher := sdk.NewWatcher(int64(fromHeight))
-			watcher.SetLogger(sdk.NewLoggerByZap(true, "*:debug"))
-
+			watcher := sdk.NewWatcher(ctx, int64(fromHeight))
 			if err := watcher.Watch(ctx, int64(fromHeight),
 				func(logger tmlog.Logger, height int64, block *types.FullBlock) error {
 					logger.Info("on block", "height", height, "id", block.BlockID, "appHash", block.AppHash.String())
