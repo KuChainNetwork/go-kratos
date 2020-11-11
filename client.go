@@ -20,24 +20,32 @@ func init() {
 }
 
 type Client struct {
-	cdc    *codec.Codec
+	cdc *codec.Codec
+
 	LcdURL string
+	RpcURL string
 	logger tmlog.Logger
 }
 
 func NewClient(ctx Context) *Client {
 	lcdURL := ctx.LcdURL()
-
-	if lcdURL == "" {
-		panic(errors.New("url error"))
+	if lcdURL != "" {
+		if lcdURL[len(lcdURL)-1] != '/' {
+			lcdURL += "/"
+		}
 	}
 
-	if lcdURL[len(lcdURL)-1] != '/' {
-		lcdURL += "/"
+	rpcURL := ctx.RpcURL()
+	if rpcURL != "" {
+		if rpcURL[len(lcdURL)-1] != '/' {
+			rpcURL += "/"
+		}
 	}
 
 	return &Client{
 		LcdURL: lcdURL,
+		RpcURL: rpcURL,
+
 		cdc:    app.MakeCodec(),
 		logger: ctx.Logger(),
 	}
@@ -51,8 +59,8 @@ func (c Client) Cdc() *codec.Codec {
 	return c.cdc
 }
 
-func (c *Client) Query(format string, a ...interface{}) ([]byte, error) {
-	path := c.LcdURL + fmt.Sprintf(format, a...)
+func (c *Client) query(url, format string, a ...interface{}) ([]byte, error) {
+	path := url + fmt.Sprintf(format, a...)
 
 	resp, err := http.Get(path)
 	if err != nil {
@@ -72,17 +80,13 @@ func (c *Client) Query(format string, a ...interface{}) ([]byte, error) {
 	}
 }
 
-func (c *Client) queryFromJSON(res interface{}, format string, args ...interface{}) error {
+func (c *Client) queryFromJSON(res interface{}, url, format string, args ...interface{}) error {
 	c.logger.Debug("query", "path", fmt.Sprintf(format, args...))
 
-	data, err := c.Query(format, args...)
+	data, err := c.query(url, format, args...)
 	if err != nil {
 		return err
 	}
-
-	//c.logger.Debug("get %s", string(data))
-
-	//fmt.Println(string(data))
 
 	if err := c.cdc.UnmarshalJSON(data, res); err != nil {
 		return errors.Wrapf(err, "unmarshal json err by query %s", fmt.Sprintf(format, args...))
