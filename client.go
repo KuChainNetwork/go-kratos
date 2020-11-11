@@ -25,7 +25,9 @@ type Client struct {
 	logger tmlog.Logger
 }
 
-func NewClient(lcdURL string) *Client {
+func NewClient(ctx Context) *Client {
+	lcdURL := ctx.LcdURL()
+
 	if lcdURL == "" {
 		panic(errors.New("url error"))
 	}
@@ -37,7 +39,7 @@ func NewClient(lcdURL string) *Client {
 	return &Client{
 		LcdURL: lcdURL,
 		cdc:    app.MakeCodec(),
-		logger: tmlog.NewNopLogger(),
+		logger: ctx.Logger(),
 	}
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -9,6 +10,7 @@ import (
 	sdk "github.com/KuChainNetwork/go-kratos"
 	"github.com/KuChainNetwork/go-kratos/types"
 	"github.com/KuChainNetwork/kuchain/chain/config"
+	"github.com/KuChainNetwork/kuchain/utils/log"
 	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
@@ -36,14 +38,32 @@ func TailBlocks() *cobra.Command {
 			lcdURL := cmd.Flag(FlagURL).Value.String()
 			rpcURL := cmd.Flag(FlagRPCURL).Value.String()
 
-			watcher := sdk.NewWatcher(int64(fromHeight))
-			watcher.SetLogger(sdk.NewLoggerByZap(true, "*:debug"))
+			logger := log.NewLoggerByZap(true, "*:debug")
 
-			return watcher.Watch(lcdURL, rpcURL, int64(fromHeight),
+			ctxCancel, cancel := context.WithCancel(context.Background())
+			ctx := sdk.NewCtx(ctxCancel).
+				WithUrls(lcdURL, rpcURL).
+				WithLogger(logger)
+
+			watcher := sdk.NewWatcher(ctx, int64(fromHeight))
+			if err := watcher.Watch(ctx, int64(fromHeight),
 				func(logger tmlog.Logger, height int64, block *types.FullBlock) error {
 					logger.Info("on block", "height", height, "id", block.BlockID, "appHash", block.AppHash.String())
 					return nil
-				})
+				}); err != nil {
+				return errors.Wrapf(err, "watcher error")
+			}
+
+			sdk.HoldToClose(func() {
+				cancel()
+
+				logger.Info("cancel watcher, waiting for stopped")
+				watcher.Wait()
+
+				logger.Info("watcher stopped")
+			})
+
+			return nil
 		},
 		Args: cobra.ExactArgs(1),
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
@@ -19,8 +20,11 @@ func main() {
 
 	chainCfg.SealChainConfig()
 
-	cli := sdk.NewClient(*url)
-	cli.SetLogger(log.NewLoggerByZap(true, "*:debug"))
+	ctx := sdk.NewCtx(context.Background()).
+		WithUrls(*url, "").
+		WithLogger(log.NewLoggerByZap(true, "*:debug"))
+
+	cli := sdk.NewClient(ctx)
 
 	data, err := cli.QueryFullBlock(*num)
 
