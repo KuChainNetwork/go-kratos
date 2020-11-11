@@ -12,7 +12,7 @@ import (
 func (c *Client) QueryBlockByNum(num int64) (block.DecodeResultBlock, error) {
 	var res block.DecodeResultBlock
 
-	if err := c.queryFromJSON(&res, "blocks/%d/decode", num); err != nil {
+	if err := c.queryFromJSON(&res, c.LcdURL, "blocks/%d/decode", num); err != nil {
 		return res, errors.Wrapf(err, "error by query block decode %d", num)
 	}
 
@@ -22,7 +22,7 @@ func (c *Client) QueryBlockByNum(num int64) (block.DecodeResultBlock, error) {
 func (c *Client) QueryLatestBlock() (block.DecodeResultBlock, error) {
 	var res block.DecodeResultBlock
 
-	if err := c.queryFromJSON(&res, "blocks/latest/decode"); err != nil {
+	if err := c.queryFromJSON(&res, c.LcdURL, "blocks/latest/decode"); err != nil {
 		return res, errors.Wrapf(err, "error by query block decode latest")
 	}
 
@@ -34,7 +34,7 @@ func (c *Client) QueryTxByHash(hash string) (sdk.TxResponse, error) {
 		Res sdk.TxResponse `json:"TxResponse"`
 	}
 
-	if err := c.queryFromJSON(&tx, "txs/%s", hash); err != nil {
+	if err := c.queryFromJSON(&tx, c.LcdURL, "txs/%s", hash); err != nil {
 		return tx.Res, errors.Wrapf(err, "error by query tx %s", hash)
 	}
 
@@ -49,7 +49,7 @@ func (c *Client) QueryFullBlock(num int64) (types.FullBlock, error) {
 		path = "blocks/latest/decode"
 	}
 
-	if err := c.queryFromJSON(&decodeRes, path); err != nil {
+	if err := c.queryFromJSON(&decodeRes, c.LcdURL, path); err != nil {
 		return types.FullBlock{}, errors.Wrapf(err, "error by query block decode %d", num)
 	}
 

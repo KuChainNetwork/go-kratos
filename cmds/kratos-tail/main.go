@@ -29,6 +29,7 @@ func main() {
 
 	rootCmd := makeCmd(
 		TailBlocks(),
+		TailEvents(),
 	)
 
 	err := rootCmd.Execute()

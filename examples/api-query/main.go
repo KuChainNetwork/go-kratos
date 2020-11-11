@@ -12,7 +12,8 @@ import (
 
 var (
 	num = flag.Int64("num", 0, "block height to query")
-	url = flag.String("url", "http://127.0.0.1:1317/", "kuchain rpc url")
+	url = flag.String("url", "http://127.0.0.1:1317/", "kuchain lcd url")
+	rpc = flag.String("rpc", "http://127.0.0.1:26657/", "kuchain rpc url")
 )
 
 func main() {
@@ -21,7 +22,7 @@ func main() {
 	chainCfg.SealChainConfig()
 
 	ctx := sdk.NewCtx(context.Background()).
-		WithUrls(*url, "").
+		WithUrls(*url, *rpc).
 		WithLogger(log.NewLoggerByZap(true, "*:debug"))
 
 	cli := sdk.NewClient(ctx)
@@ -33,4 +34,11 @@ func main() {
 	}
 
 	fmt.Println(string(sdk.MustMarshalJSON(data)))
+
+	blockResults, err := cli.QueryBlockResultsByHeight(*num)
+	if err != nil {
+		panic(fmt.Errorf("result err by %s", err.Error()))
+	}
+
+	fmt.Println(string(sdk.MustMarshalJSON(blockResults)))
 }
