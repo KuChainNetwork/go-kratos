@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -24,6 +25,8 @@ func makeCmd(cmds ...*cobra.Command) *cobra.Command {
 }
 
 func main() {
+	runtime.GOMAXPROCS(4)
+
 	rootCmd := makeCmd(
 		TailBlocks(),
 	)

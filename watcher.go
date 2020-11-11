@@ -7,7 +7,6 @@ import (
 	"github.com/KuChainNetwork/go-kratos/types"
 	"github.com/pkg/errors"
 	"github.com/tendermint/tendermint/libs/log"
-	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
 const (
@@ -93,19 +92,19 @@ type watcher struct {
 	scanner  *scanner
 	cli      *Client
 	wsClient *WSClient
-	logger   tmlog.Logger
+	logger   log.Logger
 }
 
 func NewWatcher(fromHeight int64) *watcher {
 	return &watcher{
 		stat:           watcherStatInit,
 		scanner:        NewScanner(fromHeight),
-		logger:         tmlog.NewNopLogger(),
+		logger:         log.NewNopLogger(),
 		blockDataChann: make(chan blockData, 4096),
 	}
 }
 
-func (w *watcher) SetLogger(l tmlog.Logger) {
+func (w *watcher) SetLogger(l log.Logger) {
 	w.logger = l
 	w.scanner.SetLogger(l)
 }
@@ -124,13 +123,13 @@ func (w *watcher) Status() int {
 	return w.stat
 }
 
-func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler) error {
+func (w *watcher) Watch(ctx Context, fromHeight int64, h BlockHandler) error {
 	w.logger.Debug("start scanner first", "from", fromHeight)
 
 	// init the  client
-	w.cli = NewClient(lcdURL)
+	w.cli = NewClient(ctx)
 
-	wsCli, err := NewWSClient(log.NewNopLogger(), rpcURL)
+	wsCli, err := NewWSClient(log.NewNopLogger(), ctx.LcdURL())
 	if err != nil {
 		return errors.Wrapf(err, "start ws client to chain node error")
 	}
@@ -156,8 +155,8 @@ func (w *watcher) Watch(lcdURL, rpcURL string, fromHeight int64, h BlockHandler)
 	w.nextStatStep()
 
 	// first scanner all old blocks
-	w.scanner.ScanBlocks(lcdURL, fromHeight,
-		func(logger tmlog.Logger, height int64, block *types.FullBlock) error {
+	w.scanner.ScanBlocks(ctx, fromHeight,
+		func(logger log.Logger, height int64, block *types.FullBlock) error {
 			if height%100 == 0 {
 				logger.Debug("handler blocks", "height", height)
 			}

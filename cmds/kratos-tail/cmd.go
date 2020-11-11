@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -36,10 +37,14 @@ func TailBlocks() *cobra.Command {
 			lcdURL := cmd.Flag(FlagURL).Value.String()
 			rpcURL := cmd.Flag(FlagRPCURL).Value.String()
 
+			ctx := sdk.NewCtx(context.Background()).
+				WithUrls(lcdURL, rpcURL).
+				WithLogger(sdk.NewLoggerByZap(true, "*:debug"))
+
 			watcher := sdk.NewWatcher(int64(fromHeight))
 			watcher.SetLogger(sdk.NewLoggerByZap(true, "*:debug"))
 
-			if err := watcher.Watch(lcdURL, rpcURL, int64(fromHeight),
+			if err := watcher.Watch(ctx, int64(fromHeight),
 				func(logger tmlog.Logger, height int64, block *types.FullBlock) error {
 					logger.Info("on block", "height", height, "id", block.BlockID, "appHash", block.AppHash.String())
 					return nil

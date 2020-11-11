@@ -46,8 +46,8 @@ func (s *scanner) setToHeight(height int64) {
 	s.latestBlockHeight = height
 }
 
-func (s *scanner) ScanBlocks(url string, fromHeight int64, h BlockHandler) {
-	s.cli = NewClient(url)
+func (s *scanner) ScanBlocks(ctx Context, fromHeight int64, h BlockHandler) {
+	s.cli = NewClient(ctx)
 
 	s.wg.Add(1)
 	go func() {
@@ -66,7 +66,7 @@ func (s *scanner) ScanBlocks(url string, fromHeight int64, h BlockHandler) {
 			close(s.blockDataChann)
 		}()
 
-		if err := s.scanBlocksImp(url, fromHeight, h); err != nil {
+		if err := s.scanBlocksImp(ctx.LcdURL(), fromHeight, h); err != nil {
 			s.logger.Error("scan block error", "err", err)
 		}
 	}()

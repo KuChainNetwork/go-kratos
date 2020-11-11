@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -38,7 +39,11 @@ func ScanAllBlocks() *cobra.Command {
 			scanner := sdk.NewScanner(int64(fromHeight))
 			scanner.SetLogger(log.NewLoggerByZap(true, "*:info"))
 
-			scanner.ScanBlocks(url, int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
+			ctx := sdk.NewCtx(context.Background()).
+				WithLogger(log.NewLoggerByZap(true, "*:info")).
+				WithUrls(url, "")
+
+			scanner.ScanBlocks(ctx, int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
 				l.Info("block", "height", block.Height, "id", block.BlockID, "appHash", block.AppHash.String(), "txs", len(block.TxDatas))
 				return nil
 			})
@@ -74,7 +79,11 @@ func ScanAllTxs() *cobra.Command {
 			scanner := sdk.NewScanner(int64(fromHeight))
 			scanner.SetLogger(log.NewLoggerByZap(true, "*:info"))
 
-			scanner.ScanBlocks(url, int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
+			ctx := sdk.NewCtx(context.Background()).
+				WithLogger(log.NewLoggerByZap(true, "*:info")).
+				WithUrls(url, "")
+
+			scanner.ScanBlocks(ctx, int64(fromHeight), func(l tmlog.Logger, height int64, block *types.FullBlock) error {
 				l.Debug("block", "height", block.Height, "id", block.BlockID, "appHash", block.AppHash.String(), "txs", len(block.TxDatas))
 				for _, tx := range block.TxDatas {
 					l.Info("txs", "height", block.Height, "tx", tx.TxHash)
