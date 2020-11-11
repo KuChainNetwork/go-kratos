@@ -95,12 +95,17 @@ func (w *WSClient) Start() error {
 }
 
 func (w *WSClient) Stop() error {
+	w.wsCli.Logger.Debug("wsClient start stop")
 	return w.wsCli.Stop()
 }
 
 func (w *WSClient) Wait() {
+	w.wsCli.Logger.Debug("wsClient start wait stopped")
+
 	w.wsCli.Wait()
 	w.wg.Wait()
+
+	w.wsCli.Logger.Debug("wsClient stopped")
 }
 
 func (w *WSClient) AddHandler(handler WsHandler) {

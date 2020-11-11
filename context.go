@@ -20,6 +20,15 @@ func NewCtx(ctx context.Context) Context {
 	}
 }
 
+func (c Context) Clone(ctx context.Context) Context {
+	return Context{
+		Context: ctx,
+		lcdURL:  c.lcdURL,
+		rpcURL:  c.rpcURL,
+		logger:  c.logger,
+	}
+}
+
 func (c Context) WithUrls(lcdURL string, rpcURL string) Context {
 	c.lcdURL = lcdURL
 	c.rpcURL = rpcURL

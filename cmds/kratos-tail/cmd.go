@@ -10,6 +10,7 @@ import (
 	sdk "github.com/KuChainNetwork/go-kratos"
 	"github.com/KuChainNetwork/go-kratos/types"
 	"github.com/KuChainNetwork/kuchain/chain/config"
+	"github.com/KuChainNetwork/kuchain/utils/log"
 	tmlog "github.com/tendermint/tendermint/libs/log"
 )
 
@@ -37,9 +38,12 @@ func TailBlocks() *cobra.Command {
 			lcdURL := cmd.Flag(FlagURL).Value.String()
 			rpcURL := cmd.Flag(FlagRPCURL).Value.String()
 
-			ctx := sdk.NewCtx(context.Background()).
+			logger := log.NewLoggerByZap(true, "*:debug")
+
+			ctxCancel, cancel := context.WithCancel(context.Background())
+			ctx := sdk.NewCtx(ctxCancel).
 				WithUrls(lcdURL, rpcURL).
-				WithLogger(sdk.NewLoggerByZap(true, "*:debug"))
+				WithLogger(logger)
 
 			watcher := sdk.NewWatcher(ctx, int64(fromHeight))
 			if err := watcher.Watch(ctx, int64(fromHeight),
@@ -50,7 +54,14 @@ func TailBlocks() *cobra.Command {
 				return errors.Wrapf(err, "watcher error")
 			}
 
-			watcher.Wait()
+			sdk.HoldToClose(func() {
+				cancel()
+
+				logger.Info("cancel watcher, waiting for stopped")
+				watcher.Wait()
+
+				logger.Info("watcher stopped")
+			})
 
 			return nil
 		},

@@ -35,7 +35,7 @@ func ScanAllBlocks() *cobra.Command {
 			}
 
 			url := cmd.Flag(FlagURL).Value.String()
-			logger := log.NewLoggerByZap(true, "*:info")
+			logger := log.NewLoggerByZap(true, "*:debug")
 
 			ctxCancel, cancel := context.WithCancel(context.Background())
 			ctx := sdk.NewCtx(ctxCancel).

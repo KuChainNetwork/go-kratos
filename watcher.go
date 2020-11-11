@@ -128,7 +128,7 @@ func (w *watcher) Watch(ctx Context, fromHeight int64, h BlockHandler) error {
 	w.logger.Debug("start scanner first", "from", fromHeight)
 
 	// init the client
-	wsCli, err := NewWSClient(log.NewNopLogger(), ctx.LcdURL())
+	wsCli, err := NewWSClient(log.NewNopLogger(), ctx.RpcURL())
 	if err != nil {
 		return errors.Wrapf(err, "start ws client to chain node error")
 	}
@@ -137,6 +137,25 @@ func (w *watcher) Watch(ctx Context, fromHeight int64, h BlockHandler) error {
 		return errors.Wrapf(err, "start ws client error")
 	}
 	w.wsClient = wsCli
+
+	scannerCtx, cancelScanner := context.WithCancel(context.Background())
+	go func() {
+		<-ctx.Done()
+
+		// first stop scanner
+		cancelScanner()
+		if w.scanner != nil {
+			w.scanner.Wait()
+		}
+
+		// second, stop watcher
+		if w.wsClient != nil {
+			w.wsClient.Stop()
+			w.wsClient.Wait()
+		}
+
+		w.stop()
+	}()
 
 	// start handler
 	w.logger.Debug("start handler")
@@ -154,7 +173,7 @@ func (w *watcher) Watch(ctx Context, fromHeight int64, h BlockHandler) error {
 	w.nextStatStep()
 
 	// first scanner all old blocks
-	w.scanner.ScanBlocks(ctx, fromHeight,
+	w.scanner.ScanBlocks(ctx.Clone(scannerCtx), fromHeight,
 		func(logger log.Logger, height int64, block *types.FullBlock) error {
 			if height%100 == 0 {
 				logger.Debug("handler blocks", "height", height)
@@ -174,7 +193,7 @@ func (w *watcher) Watch(ctx Context, fromHeight int64, h BlockHandler) error {
 	// on watch
 	const queryParamString = "tm.event='NewBlock'"
 
-	if err := w.wsClient.SubscribeBlocks(context.Background(),
+	if err := w.wsClient.SubscribeBlocks(ctx,
 		func(block *types.EventNewBlock) error {
 			full, err := w.cli.QueryFullBlock(block.Block.Block.Height)
 			if err != nil {
@@ -191,13 +210,16 @@ func (w *watcher) Watch(ctx Context, fromHeight int64, h BlockHandler) error {
 }
 
 func (w *watcher) Wait() {
+	w.logger.Debug("watcher start wait stopped")
+
 	w.wsClient.Wait()
 	w.wg.Wait()
+
+	w.logger.Debug("watcher stopped")
 }
 
-func (w *watcher) Stop() {
-	// TODO: stop scan and watch at first then wait all processed
-
+func (w *watcher) stop() {
+	w.logger.Debug("watcher start stop")
 	w.blockDataChann <- newBlockDataStop()
 	close(w.blockDataChann)
 }
